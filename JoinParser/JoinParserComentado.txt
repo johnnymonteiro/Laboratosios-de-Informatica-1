@@ -1,0 +1,374 @@
+module Main where
+import System.IO
+import System.Environment
+import System.Process
+
+type Nome = String
+type Email = String
+type Curso = String 
+type Numero = String
+type Univ = String
+type Curso1 = String
+type Filiacao = String
+type Jantar = String
+type Almoco = String
+type Join = String
+type Outro = String
+type Data = String
+
+type Inscricao = (Nome, Email, Curso, Numero, Univ, Curso1, Filiacao, Jantar, Almoco, Join, Outro, Data)
+
+-- SECCAO IO
+
+main = do
+
+
+-- TAREFA 1
+
+-- Menuzinho e tal
+	putStrLn "+++++++++++++++++++++++++++++++++++++++++++"
+	putStrLn "++**        JOIN PARSER 3.4beta        **++"
+	putStrLn "++++** Insira o nome do ficheiro csv **++++"
+	putStrLn "++++___________________________________++++"
+
+-- Para p™r o CSV como argumento
+	csvname <- getLine
+	x <- readFile (csvname ++".csv")
+
+-- Separar por inscri›es, retirando a primeira linha 
+	y <- return ((drop 1 (lines x)) :: [String])
+
+-- Separar por campos
+	z <- return ((virgula y) :: [[String]])
+
+-- P™r os campos em tuplos
+	w <- return ((map tuplar z))
+
+-- Lista com validados
+	c <- return ((validacao w)++(repetidos w) ++ (validnames w))
+
+
+-- TAREFA 2
+
+-- Lista com diferentes
+	a <- return (diferentes w)
+
+-- Lista com diferentes e v‡lidos
+	as <- return (diferentesx a)
+
+-- Lista com primeiros e œltimos nomes
+	n <- return (nomes as)
+
+-- Gerar inscri›es inv‡lidas
+	parsinglatex <- return( parsingtex (c))
+
+-- Tipos de participante
+	alunos <- return (isaluno n)
+	externos <- return (isexterno n)
+	empresas <- return (isempresa n)
+
+-- Gerar Crach‡s
+	crashaaluno <- return (tex (texalunos alunos))
+	crashaexterno <- return (tex (texexterno externos))
+	crashaempresa <- return(tex (texempresa empresas))
+
+-- Gerar 10 crach‡s por p‡gina
+	multipagescrashaaluno <- return (mpc ("cards_alunos.pdf"))
+	multipagescrashaexterno <- return (mpc ("cards_externos.pdf"))
+	multipagescrashaempresa <- return (mpc ("cards_empresas.pdf"))
+
+
+-- TAREFA 3 e 4
+
+-- Contar cursos, al/jn , raz›es
+	cscount <- return (zipall (+) (map statsc (as)))
+	aljncount <- return (zipall (+) (map statsaj (as)))
+	incount <- return (zipall (+) (map statsi (as)))
+
+-- Criar DAT's
+	csdatcount <- return (csdat (cscount))
+	aljndatcount <- return (aljndat (aljncount))
+        indatcount <- return (indat (incount))
+
+-- 
+      	analiseintmontar <- return(analiseint (n))
+	analiseajmontar <- return(analiseaj (n))
+
+-- 
+	analisedatint <- return(analiseintdat (analiseintmontar))
+	analisedataj <- return(analiseajdat (analiseajmontar))
+
+-- Gerar Tabelas e Gr‡ficos
+	tabela1 <- return(unitable1 (cscount))
+	tabela2 <- return(unitable2 (incount))
+	tabela3 <- return(unitable3 (aljncount))
+ 	tabela4 <- return(multable1 (analiseintmontar))
+	tabela5 <- return(multable2 (analiseajmontar))
+
+-- Gerar pdf com gr‡ficos e tabelas
+	statslatex <- return(juntatex (tabela1) (tabela2) (tabela3) (tabela4) (tabela5))
+	graficos <- readFile "gnustats/graficos.tex"
+
+
+-- Cria‹o de ficheiros
+
+- Crach‡s (10 por p‡gina)
+	writeFile "CRASHAS_ALUNOS.tex" multipagescrashaaluno
+	writeFile "CRASHAS_EXTERNOS.tex" multipagescrashaexterno
+	writeFile "CRASHAS_EMPRESAS.tex" multipagescrashaempresa
+
+- Crach‡s (1 por p‡gina)
+	writeFile "cards_alunos.tex" crashaaluno
+	writeFile "cards_externos.tex" crashaexterno
+	writeFile "cards_empresas.tex" crashaempresa
+
+-- DAT's
+	writeFile "int.dat" indatcount
+   	writeFile "cs.dat" csdatcount
+	writeFile "aj.dat" aljndatcount 
+
+-- Tabelas
+	writeFile "Estatisticas.tex" statslatex
+	writeFile "ESTATS.tex" statslatex
+	writeFile "Graficos.tex" graficos
+
+-- DAT's
+	writeFile "analise1.dat" analisedatint
+	writeFile "analise2.dat" analisedataj 
+
+-- PDF com erros
+	writeFile "Parsing.tex" parsinglatex
+
+-- Script para estabelecer sequncia de comandos a seguir
+	runCommand "sh scrip.sh"
+	
+
+-- SECCAO FUNCOES 
+
+-- TAREFA 1
+
+-- Auxiliar de vir, Para acautelar campos com aspas ou virgulas
+splitstringx :: String -> Int -> [String]
+splitstringx [] _ = [[]]
+splitstringx (c:cs) x = let (s:ss) = splitstringx cs x
+					in if (c==',') && (even x) then []:(s:ss) 
+					   else if (c=='\"') then (splitstringx cs (x+1))
+							    else (c:s):ss
+
+-- Separar por campos
+virgula :: [String] -> [[String]]
+virgula [ ] = [ ]
+virgula (x:xs) = (splitstringx x 0) : (virgula xs)
+
+
+-- P™r os campos em duplos, o n13 Ž a lista vazia, tira-se sen‹o d‡ erro 
+tuplar :: [String] -> (Inscricao)
+tuplar (n:n2:n3:n4:n5:n6:n7:n8:n9:n10:n11:n12:n13) = (n,n2,n3,n4,n5,n6,n7,n8,n9,n10,n11,n12)
+
+-- Auxiliar Repetidos, Compara o campo chave de duas inscri›es (e-mail) 
+compara :: [(Inscricao)] -> Bool
+compara [x] = True
+compara ((n,e,c,nm,u,c1,f,j,a,jo,o,d):(ns,es,cs,nms,us,c1s,fs,js,as,jos,os,ds):r) = ((e /= es) && (compara ((n,e,c,nm,u,c1,f,j,a,jo,o,d):r)))
+
+-- Se os mails forem diferentes, continua, sen‹o d‡ mensagem de erro
+repetidos :: [(Inscricao)] -> String
+repetidos [x] = ""
+repetidos ((n,e,c,nm,u,c1,f,j,a,jo,o,d):(ns,es,cs,nms,us,c1s,fs,js,as,jos,os,ds):r) = if (compara ((n,e,c,nm,u,c1,f,j,a,jo,o,d):(ns,es,cs,nms,us,c1s,fs,js,as,jos,os,ds):r) == True) 
+										      then repetidos ((ns,es,cs,nms,us,c1s,fs,js,as,jos,os,ds):r)
+                                                                                      else "\\item{O registo com o email " ++ show e ++ " Ã© repetido.}\n" ++ (repetidos ((ns,es,cs,nms,us,c1s,fs,js,as,jos,os,ds):r))
+
+-- Se, para cada um dos tipos, os campos tiverem preenchidos, continua, sen‹o d‡ mensagem de erro
+validacao :: [(Inscricao)] -> String
+validacao [] = ""
+validacao ((n,e,c,nm,u,c1,f,j,a,jo,o,d):r) | (n /= "") && (e /= "") && (c /= "") && (nm /= "") && (u == "") && (c1 == "") && (f == "") = validacao r
+					   | (n /= "") && (e /= "") && (c == "") && (nm == "") && (u /= "") && (c1 /= "") && (f == "") = validacao r
+				  	   | (n /= "") && (e /= "") && (c == "") && (nm == "") && (u == "") && (c1 == "") && (f /= "") = validacao r
+					   | otherwise = "\\item {O registo com o email " ++ show e ++ " tem a inscric\227o inv\225lida.}\n" ++ (validacao r)
+
+-- Os nomes tm que ter mais de duas palavras
+validnames :: [(Inscricao)] -> String
+validnames [] = ""
+validnames ((n,e,c,nm,u,c1,f,j,a,jo,o,d):r) | ((length(words(n))) < 2) = "\\item {O registo com o email " ++ show e ++ " tem o nome mal preenchido.}\n" ++ (validnames r)
+					    | otherwise = (validnames r) 
+
+-- Gerar pdf com mensagens de erro
+parsingtex :: String -> String
+parsingtex s = "\\documentclass{article}\n\\usepackage{a4wide}\n\\usepackage[portuges]{babel}\n\\usepackage[utf8]{inputenc}\n\\usepackage{verbatim}\n\\usepackage{graphicx}\n\\usepackage{eso-pic}\n\n\\title{Parsing das Inscri\231\245es}\n\n\\begin{document}\n\\maketitle\n\\begin{itemize}\n"++ s ++"\n\\end{itemize}\n\\end{document}\n"
+
+-- Lista com as inscri›es diferentes
+diferentes :: [(Inscricao)] -> [(Inscricao)]
+diferentes [x] = [x]
+diferentes (t1:t2:r) = if (compara (t1:t2:r) == True) then (t1 : diferentes(t2:r)) else (diferentes (t2:r))
+
+-- Lista com diferentes e v‡lidas
+diferentesx :: [(Inscricao)] -> [(Inscricao)]
+diferentesx [] = []
+diferentesx ((n,e,c,nm,u,c1,f,j,a,jo,o,d):r) | (n /= "") && (e /= "") && (c /= "") && (nm /= "") && (u == "") && (c1 == "") && (f == "") = (n,e,c,nm,u,c1,f,j,a,jo,o,d) : diferentesx r
+					     | (n /= "") && (e /= "") && (c == "") && (nm == "") && (u /= "") && (c1 /= "") && (f == "") = (n,e,c,nm,u,c1,f,j,a,jo,o,d) : diferentesx r
+					     | (n /= "") && (e /= "") && (c == "") && (nm == "") && (u == "") && (c1 == "") && (f /= "") = (n,e,c,nm,u,c1,f,j,a,jo,o,d) : diferentesx r
+					     | otherwise = diferentesx r
+
+-- TAREFA 2
+
+-- Auxiliar Nomes
+fsls :: String -> String
+fsls x = head (words x) ++ " " ++ last (words x)
+
+-- Lista com apenas primeiros e œltimos nomes
+nomes :: [(Inscricao)] -> [(Inscricao)]
+nomes [] = []
+nomes ((n,e,c,nm,u,c1,f,j,a,jo,o,d):r) = ((fsls n),e,c,nm,u,c1,f,j,a,jo,o,d) : (nomes r)
+
+-- Lista de Alunos					
+isaluno :: [(Inscricao)] -> [(Inscricao)]
+isaluno [] = []
+isaluno ((n,e,c,nm,u,c1,f,j,a,jo,o,d):r) | (n /= "") && (e /= "") && (c /= "") && (nm /= "") && (u == "") && (c1 == "") && (f == "") = (n,e,c,nm,u,c1,f,j,a,jo,o,d) : (isaluno r)
+					 | otherwise = isaluno r
+
+-- Lista de Universit‡rios
+isexterno :: [(Inscricao)] -> [(Inscricao)]
+isexterno [] = []
+isexterno ((n,e,c,nm,u,c1,f,j,a,jo,o,d):r) | (n /= "") && (e /= "") && (c == "") && (nm == "") && (u /= "") && (c1 /= "") && (f == "") = (n,e,c,nm,u,c1,f,j,a,jo,o,d) : (isexterno r)
+					   | otherwise = isexterno r
+
+-- Lista de Empresas
+isempresa :: [(Inscricao)] -> [(Inscricao)]	
+isempresa [] = []										
+isempresa ((n,e,c,nm,u,c1,f,j,a,jo,o,d):r) | (n /= "") && (e /= "") && (c == "") && (nm == "") && (u == "") && (c1 == "") && (f /= "") = (n,e,c,nm,u,c1,f,j,a,jo,o,d) : (isempresa r)						
+					   |otherwise = isempresa r	
+
+-- Crach‡s Alunos
+texalunos :: [(Inscricao)] -> String
+texalunos [] = ""
+texalunos ((n,e,c,nm,u,c1,f,j,a,jo,o,d):r) ="\\AddToShipoutPicture{\\BackgroundPic{design/background-participante}}\n\n\\includegraphics{design/logo}\\\\\n\n\\addvspace{5mm}\n\n\\begin{center}\n\t\\huge{NAME}\n\t\\scriptsize{\n\t\\begin{tabular*}{0.75\\textwidth}{c}\n\t"++ n ++" \\\\\n\t\t\\hline\n\t\\end{tabular*}}\\\\\n\tCOMPANY\\\\ Universidade do Minho - " ++ c ++ "\n\t\t\n\\end{center}\n\n\\begin{flushright}\n\t\\begin{tabular}{r l l}\n%\t\t\\normalsize{Participante}& &\n\t\t\\normalsize{Participante} & &\n\t\\end{tabular}\n\\end{flushright}\n\n\\pagebreak" ++ (texalunos r)
+
+-- Crach‡s Universit‡rios
+texexterno :: [(Inscricao)] -> String
+texexterno [] = ""
+texexterno ((n,e,c,nm,u,c1,f,j,a,jo,o,d):r) ="\\AddToShipoutPicture{\\BackgroundPic{design/background-participante}}\n\n\\includegraphics{design/logo}\\\\\n\n\\addvspace{5mm}\n\n\\begin{center}\n\t\\huge{NAME}\n\t\\scriptsize{\n\t\\begin{tabular*}{0.75\\textwidth}{c}\n\t"++ n ++" \\\\\n\t\t\\hline\n\t\\end{tabular*}}\\\\\n\tCOMPANY\\\\ "++ u ++ " - " ++ c1 ++ "\n\t\t\n\\end{center}\n\n\\begin{flushright}\n\t\\begin{tabular}{r l l}\n%\t\t\\normalsize{Participante}& &\n\t\t\\normalsize{Participante} & &\n\t\\end{tabular}\n\\end{flushright}\n\n\\pagebreak" ++ (texexterno r)
+
+-- Crach‡s Empresas
+texempresa :: [(Inscricao)] -> String
+texempresa [] = ""
+texempresa ((n,e,c,nm,u,c1,f,j,a,jo,o,d):r) ="\\AddToShipoutPicture{\\BackgroundPic{design/background-participante}}\n\n\\includegraphics{design/logo}\\\\\n\n\\addvspace{5mm}\n\n\\begin{center}\n\t\\huge{NAME}\n\t\\scriptsize{\n\t\\begin{tabular*}{0.75\\textwidth}{c}\n\t"++ n ++" \\\\\n\t\t\\hline\n\t\\end{tabular*}}\\\\\n\tCOMPANY\\\\" ++ f ++ "\n\t\t\n\\end{center}\n\n\\begin{flushright}\n\t\\begin{tabular}{r l l}\n%\t\t\\normalsize{Participante}& &\n\t\t\\normalsize{Participante} & &\n\t\\end{tabular}\n\\end{flushright}\n\n\\pagebreak" ++ (texempresa r)
+
+-- C—digo comum a todos os tipos de participante
+tex :: String -> String
+tex x = "\\documentclass{article}\n\\usepackage[portuges]{babel}\n\\usepackage[utf8]{inputenc}\n\\usepackage{graphicx}\n\\usepackage{eso-pic}\n\n\n\\paperwidth 89mm\n\\paperheight 55mm\n\\pdfpagewidth=\\paperwidth\n\\pdfpageheight=\\paperheight\n\\textwidth       89mm\n\\textheight      55in\n\\oddsidemargin  -26mm\n\\evensidemargin -26mm\n\\hoffset\t 0mm\n\\topmargin      -33mm\n\\itemindent      0mm\n\\parindent       0mm\n\\renewcommand\\familydefault{\\sfdefault}\n\n\n%%%%%%%%%%%%%%%%%%%%%%%%%%%% BEGIN DOCUMENT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\\setlength{\\unitlength}{1mm}\n\\newcommand\\BackgroundPic[1]{\n\\put(-4,0){\\parbox[b][\\paperheight]{\\paperwidth}{%\n\\vfill\n\\centering\n\\includegraphics{#1}%\n\\vfill\n}}}\n\n\n\\pagestyle{empty}\n\\begin{document}\n" ++ x ++ "\\end{document}\n"
+
+-- Juntar 10 crach‡s em cada p‡gina
+mpc :: String -> String
+mpc s ="\\documentclass{article}\n\\usepackage[portuges]{babel}\n\\usepackage[utf8]{inputenc}\n\\usepackage{graphicx}\n\\usepackage{eso-pic}\n\\usepackage{pdfpages}\n\\begin{document}\n\\includepdf[nup=2x5,pages=-]{"++ s ++"}\n\\end{document}\n"
+
+
+--TAREFA3
+
+-- zipWith para muitas listas, vai servir para contar estes 1's aqui em baixo
+zipall::(a->a->a)->[[a]]->[a]
+zipall _ [] = []
+zipall _ (a:[]) = a
+zipall f (l:ls) = zipWith f l (zipall f ls)
+
+-- Para distinguir por curso de inform‡tica
+statsc :: (Inscricao) -> [Int]
+statsc (n,e,c,nm,u,c1,f,j,a,jo,o,d) | (c == "LEI") = [1,0,0,0,0,0]
+  				    | (c == "LCC") = [0,1,0,0,0,0]
+				    | (c == "MEI") = [0,0,1,0,0,0]
+				    | (c == "MI") = [0,0,0,1,0,0]
+				    | (c == "MERSCOM") = [0,0,0,0,1,0]
+				    | (c == "MBIO") = [0,0,0,0,0,1]
+				    | otherwise = [0,0,0,0,0,0]
+-- Criar fichero DAT para cursos							
+csdat :: [Int] -> String
+csdat (a:b:c:d:e:f:r) = ("1\t" ++ show a ++ "\n2\t " ++ show b ++ "\n3\t " ++  show c ++ "\n4\t " ++ show d ++ "\n5\t " ++ show e ++ "\n6\t" ++ show f) 
+
+-- Para distinguir por almoo e/ou jantar
+statsaj :: (Inscricao) -> [Int]
+statsaj (n,e,c,nm,u,c1,f,j,a,jo,o,d) | (a == "1") && (j == "1") = [1,1]
+				     | (a == "1") && (j == "0") = [1,0]
+				     | (a == "0") && (j == "1") = [0,1]
+				     | (a == "0") && (j == "0") = [0,0]
+
+-- Criar fichero DAT para almoos e/ou jantares							
+aljndat :: [Int] -> String
+aljndat (a:b:r) = ("1\t " ++ show a ++ "\n2\t " ++ show b)
+
+-- Para distinguir por raz›es
+statsi :: (Inscricao) -> [Int]
+statsi (n,e,c,nm,u,c1,f,j,a,jo,o,d)   	| (jo == "['Procura 1\\xc2\\xba emprego', 'Procura projecto/disserta\\xc3\\xa7\\xc3\\xa3o de mestrado', 'Interesse pelas \\xc3\\xa1reas tem\\xc3\\xa1ticas']") = [1,1,1]
+					| (jo == "['Procura 1\\xc2\\xba emprego', 'Procura projecto/disserta\\xc3\\xa7\\xc3\\xa3o de mestrado']") = [1,1,0]
+					| (jo == "['Procura 1\\xc2\\xba emprego', 'Interesse pelas \\xc3\\xa1reas tem\\xc3\\xa1ticas']") = [1,0,1]
+					| (jo == "['Procura projecto/disserta\\xc3\\xa7\\xc3\\xa3o de mestrado', 'Interesse pelas \\xc3\\xa1reas tem\\xc3\\xa1ticas']") = [0,1,1]
+					| (jo == "['Procura 1\\xc2\\xba emprego']") = [1,0,0]
+					| (jo == "['Procura projecto/disserta\\xc3\\xa7\\xc3\\xa3o de mestrado']") = [0,1,0] 
+					| (jo == "['Interesse pelas \\xc3\\xa1reas tem\\xc3\\xa1ticas']") = [0,0,1]
+					| otherwise = [0,0,0]
+
+-- Criar fichero DAT para raz›es							
+indat :: [Int] -> String
+indat (a:b:c:r) = ("1\t" ++ show a ++ "\n2\t " ++ show b ++ "\n3\t " ++  show c) 
+
+-- Criar tabela com cursos
+unitable1 :: [Int] -> String
+unitable1 (n:n2:n3:n4:n5:n6:r) = "\\begin{center}\n\\begin{tabular}[b]{|c||c|}\n\\hline\n\\textbf{\\emph{Curso}} & Numero de Inscri\231\245es\\\\\n\\hline\nLEI & " ++ show n ++ "\\\\\n\\hline\nLCC & " ++ show n2 ++ "\\\\\n\\hline\nMI & " ++ show n3 ++ "\\\\\n\\hline\nMEI & " ++ show n4 ++ "\\\\\n\\hline\nMERSCOM & " ++ show n5 ++ "\\\\\n\\hline\nMBIO & " ++ show n6 ++ "\\\\\n\\hline\n\\end{tabular}\n\\end{center}"
+
+-- Criar tabela com almoos/jantares
+unitable3 :: [Int] -> String
+unitable3 (n:n2:r) = "\\begin{center}\n\\begin{tabular}[b]{|c||c|}\n\\hline\n\\textbf{\\emph{Almo\231o / Jantar}} & Numero de Inscri\231\245es\\\\\n\\hline\nAlmo\231o & " ++ show n ++ "\\\\\n\\hline\nJantar & " ++ show n2 ++"\\\\\n\\hline\n\\end{tabular}\n\\end{center}"
+
+-- Criar tabela com raz›es
+unitable2 :: [Int] -> String
+unitable2 (n:n2:n3:r) = "\\begin{center}\n\\begin{tabular}[b]{|c||c|}\n\\hline\n\\textbf{\\emph{Interesses}} & Numero de Inscri\231\245es\\\\\n\\hline\nProcura 1\186 Emprego & " ++ show n ++ "\\\\\n\\hline\nProcura projecto/disserta\231\227o de mestrado & " ++ show n2 ++ "\\\\\n\\hline\nInteresse pelas \225reas tem\225ticas & " ++ show n3 ++ "\\\\\n\\hline\nTotal & " ++ show (n+n2+n3) ++ "\\\\\n\\hline\n\\end{tabular}\n\\end{center}"
+
+
+-- TAREFA 4
+
+-- Outra vers‹o da filter, esta para [(Inscricao)]
+filterx :: (String -> Bool) -> [(Inscricao)] -> [(Inscricao)]
+filterx _ [] = []
+filterx p (((n,e,c,nm,u,c1,f,j,a,jo,o,d):r)) | p c       = ((n,e,c,nm,u,c1,f,j,a,jo,o,d) : (filterx p r))
+               			             | otherwise = filterx p r
+
+-- Auxiliare de Analiseint, cria ("Curso",[0 ou 1,0 ou 1,0 ou 1])
+analise :: [(Inscricao)] -> String -> (String,[Int])
+analise l s |((filterx (s==) l) == []) = (s,[0,0,0])
+	    |otherwise = (s,(zipall (+) (map statsi (filterx (s==) l))))
+
+-- Auxiliare de Analiseaj, cria ("Curso",[0 ou 1,0 ou 1])
+analise2 :: [(Inscricao)] -> String -> (String,[Int])
+analise2 l s |((filterx (s==) l) == []) = (s,[0,0])
+             |otherwise = (s,(zipall (+) (map statsaj (filterx (s==) l))))
+
+-- Criar lista com tuplos ("Curso",[soma de 1's,soma de 1's,soma de 1's]) 
+analiseint :: [(Inscricao)] -> [(String,[Int])]
+analiseint l = [(analise l "LEI"),(analise l "LCC"),(analise l "MEI"),(analise l "MI"),(analise l "MERSCOM"),(analise l "MBIO")]
+
+-- Criar lista com tuplos ("Curso",[soma de 1's,soma de 1's]) 
+analiseaj :: [(Inscricao)] -> [(String,[Int])]
+analiseaj l = [(analise2 l "LEI"),(analise2 l "LCC"),(analise2 l "MEI"),(analise2 l "MI"),(analise2 l "MERSCOM"),(analise2 l "MBIO")]
+
+-- Criar DAT para raz›es
+analiseintdat :: [(String,[Int])] -> String
+analiseintdat [] = " "
+analiseintdat ((c,[]):r) = ("\"" ++ c ++ " 0 0 0\n") ++ analiseintdat r
+analiseintdat ((c,(h:t:z:x)):r) =  ("\"" ++ c ++ "\" " ++ show h ++ " " ++ show t ++  " " ++ show z ++ "\n") ++ analiseintdat r 
+
+-- Criar DAT para almoos/jantares
+analiseajdat :: [(String,[Int])] -> String
+analiseajdat [] = " "
+analiseajdat ((c,(h:t:z)):r) =  ("\"" ++ c ++ "\" " ++ show h ++ " " ++ show t ++ "\n") ++ analiseajdat r 
+
+-- Criar tabela para raz›es
+multable1 :: [(String,[Int])] -> String
+multable1 ((_,(n:n2:n3:r)):(_,(s:s2:s3:r2)):(_,(m:m2:m3:r3)):(_,(l:l2:l3:r4)):(_,(x:x2:x3:r5)):(_,(z:z2:z3:r6)):rn) = "\\begin{center}\n\\begin{tabular}[b]{|l||c|c|c|c|c|c|r|}\n\\cline{1-2}\n\\verb+Contagem+ & \\verb+Curso+ \\\\\n\\hline\n\\textbf{Porque se inscreveu nas JOIN} & LEI & LCC & MI & MEI & MERSCOM & MBIO & Totais\\\\\n\\hline\n\\emph{Procura 1\186 Emprego} & "++ show n ++ " & " ++ show s ++ " & "++ show m ++ " & "++ show l ++ " & "++ show x ++ " & "++ show z ++ " & "++ show (n+s+m+l+x+z) ++ " \\\\\n\\hline\n\\emph{Procura projecto/disserta\231\227o de mestrado} & "++ show n2 ++" & "++ show s2 ++" & "++ show m2 ++" & "++ show l2 ++ " & "++ show x2 ++" & "++ show z2 ++ " & " ++ show (n2+s2+m2+l2+x2+z2) ++" \\\\\n\\hline\n\\emph{Interesse pelas \225reas tem\225ticas} & " ++ show n3 ++ " & " ++ show s3 ++ " & " ++ show m3 ++ " & " ++ show l3 ++ " & "++ show x3 ++" & "++ show z3 ++ " & " ++ show (n3+s3+m3+l3+x3+z3) ++" \\\\\n\\hline\n\\emph{Total} & " ++ show (n+n2+n3) ++ " & " ++ show (s+s2+s3) ++ " & "++ show (m+m2+m3) ++ " & " ++ show (l+l2+l3) ++ " & " ++ show (x+x2+x3) ++ " & " ++ show(z+z2+z3) ++ " & " ++ show (n+n2+n3+s+s2+s3+m+m2+m3+l+l2+l3+x+x2+x3+z+z2+z3) ++ " \\\\\n\\hline\n\\end{tabular}\n\\end{center}"
+
+-- Criar tabela para almoos/jantares
+multable2 :: [(String,[Int])] -> String
+multable2 ((_,(n:n2:nr)):(_,(s:s2:r2)):(_,(m:m2:r3)):(_,(l:l2:r4)):(_,(x:x2:r5)):(_,(z:z2:r6)):rn)  = "\\begin{center}\n\\begin{tabular}[b]{|l||c|c|c|c|c|c|r|}\n\\cline{1-2}\n\\verb+Contagem+ & \\verb+Curso+ \\\\\n\\hline\n\\textbf{Almo\231o / Jantar} & LEI & LCC & MI & MEI & MERSCOM & MBIO & Totais\\\\\n\\hline\n\\emph{Almo\231o} & "++ show n ++ " & "++ show s ++" & "++ show m ++" & "++ show l ++" & "++ show x ++" & "++ show z ++" & "++ show (n+s+m+l+x+z) ++" \\\\\n\\hline\n\\emph{Jantar} & "++ show n2 ++" & "++ show s2 ++" & "++ show m2 ++" & "++ show l2 ++" & "++ show x2 ++" & "++ show z2 ++" & "++ show (n2+s2+m2+l2+x2+z2) ++ " \\\\\n\\hline\n\\emph{Total} & "++ show (n+n2) ++" & "++ show (s+s2) ++" & "++ show (m+m2) ++" & "++ show (l+l2) ++" & "++ show (x+x2) ++" & "++ show (z+z2) ++" & "++ show (n+n2+s+s2+m+m2+l+l2+x+x2+z+z2) ++" \\\\\n\\hline\n\\end{tabular}\n\\end{center}"
+
+
+-- Juntar gr‡ficos e tabelas
+juntatex :: String -> String -> String -> String -> String -> String
+juntatex n s m l x = "\\documentclass{article}\n\\usepackage{a4wide}\n\\usepackage[portuges]{babel}\n\\usepackage[utf8]{inputenc}\n\\usepackage{verbatim}\n\\usepackage{graphicx}\n\\usepackage{eso-pic}\n\n\\title{Estat\237sticas dos Inscritos}\n\n\\begin{document}\n\\maketitle\n\\abstract{Neste documento encontram-se as estat\237sticas dos alunos inscritos da Univerdade do Minho, de acordo com os Interesses, Curso e Almo\231os ou Jantares}\n\\section{An\225lise Unidimensional}\n\\subsection{N\250mero de Inscritos por Curso (UM)}\n " ++ n ++ " \n\\subsection{Raz\227o pela Inscri\231\227o}\n" ++ s ++ " \n\\subsection{Inscri\231\245es em almo\231os / jantares}\n"++ m ++ "\n\\pagebreak\n\\section{An\225lise Multidimensional}\n\\subsection{Raz\245es da Inscri\231\227o nas JOIN}\n\n " ++ l ++ " \n\n\n\\subsection{Inscri\231\245es}\n" ++ x ++ " \n\n\n\\end{document}\n"
+
+
